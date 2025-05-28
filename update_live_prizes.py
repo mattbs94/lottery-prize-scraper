@@ -97,7 +97,9 @@ def scrape_top_prize(url):
         # Initialize prize table data
         prize_data = {
             'prize1': None, 'prize2': None, 'prize3': None, 
-            'prize4': None, 'prize5': None, 'prize6': None
+            'prize4': None, 'prize5': None, 'prize6': None,
+            'prize1value': None, 'prize2value': None, 'prize3value': None,
+            'prize4value': None, 'prize5value': None, 'prize6value': None
         }
         
         # Scrape the prize table
@@ -112,12 +114,14 @@ def scrape_top_prize(url):
                 for i, row in enumerate(rows[:6]):  # Limit to first 6 rows
                     cols = row.find_all('td')
                     if len(cols) >= 2:
+                        # Store the value from the first column (prize name/value)
+                        prize_data[f'prize{i+1}value'] = cols[0].text.strip()
                         # Store the value from the second column (wins remaining)
                         prize_data[f'prize{i+1}'] = cols[1].text.strip()
                 
                 print("Extracted prize table data:")
-                for key, value in prize_data.items():
-                    print(f"{key}: {value}")
+                for i in range(1, 7):
+                    print(f"prize{i}value: {prize_data[f'prize{i}value']}, prize{i}: {prize_data[f'prize{i}']}")
             else:
                 print("Prize table not found")
         except Exception as e:
@@ -182,7 +186,13 @@ def scrape_top_prize(url):
                 'prize3': prize_data['prize3'],
                 'prize4': prize_data['prize4'],
                 'prize5': prize_data['prize5'],
-                'prize6': prize_data['prize6']
+                'prize6': prize_data['prize6'],
+                'prize1value': prize_data['prize1value'],
+                'prize2value': prize_data['prize2value'],
+                'prize3value': prize_data['prize3value'],
+                'prize4value': prize_data['prize4value'],
+                'prize5value': prize_data['prize5value'],
+                'prize6value': prize_data['prize6value']
             }
             
             return result
@@ -250,6 +260,12 @@ def update_database(data, url):
         print(f"Prize4 (Remaining): {data['prize4']}")
         print(f"Prize5 (Remaining): {data['prize5']}")
         print(f"Prize6 (Remaining): {data['prize6']}")
+        print(f"Prize1 (Value): {data['prize1value']}")
+        print(f"Prize2 (Value): {data['prize2value']}")
+        print(f"Prize3 (Value): {data['prize3value']}")
+        print(f"Prize4 (Value): {data['prize4value']}")
+        print(f"Prize5 (Value): {data['prize5value']}")
+        print(f"Prize6 (Value): {data['prize6value']}")
         print("--- DEV MODE: Database not updated ---\n")
         return
     
@@ -318,14 +334,18 @@ def update_database(data, url):
             INSERT INTO live_prizes 
                 (time, game_name, top_prize, url, increment, price, 
                  actual_sales, implied_hourly_sales, 
-                 prize1, prize2, prize3, prize4, prize5, prize6) 
+                 prize1, prize2, prize3, prize4, prize5, prize6,
+                 prize1value, prize2value, prize3value, prize4value, prize5value, prize6value) 
             VALUES 
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                 %s, %s, %s, %s, %s, %s)
             """,
             (data['time'], data['game_name'], data['top_prize'], url, 
              data['increment'], data['price'], actual_sales, implied_hourly_sales,
              data['prize1'], data['prize2'], data['prize3'], data['prize4'], 
-             data['prize5'], data['prize6'])
+             data['prize5'], data['prize6'],
+             data['prize1value'], data['prize2value'], data['prize3value'], 
+             data['prize4value'], data['prize5value'], data['prize6value'])
         )
         conn.commit()
         formatted_time = data['time'].strftime('%Y-%m-%d %H:%M:%S')
@@ -335,6 +355,7 @@ def update_database(data, url):
         print(f"Increment: {data['increment']}")
         print(f"Price: ${data['price']}")
         print(f"Prize data captured: {data['prize1']}, {data['prize2']}, {data['prize3']}, {data['prize4']}, {data['prize5']}, {data['prize6']}")
+        print(f"Prize values captured: {data['prize1value']}, {data['prize2value']}, {data['prize3value']}, {data['prize4value']}, {data['prize5value']}, {data['prize6value']}")
     
     except Exception as e:
         conn.rollback()
@@ -364,7 +385,8 @@ def show_recent_entries(limit=5):
             """
             SELECT time, game_name, top_prize, increment, price, 
                    actual_sales, implied_hourly_sales,
-                   prize1, prize2, prize3, prize4, prize5, prize6
+                   prize1, prize2, prize3, prize4, prize5, prize6,
+                   prize1value, prize2value, prize3value, prize4value, prize5value, prize6value
             FROM live_prizes 
             ORDER BY time DESC 
             LIMIT %s
@@ -375,18 +397,19 @@ def show_recent_entries(limit=5):
         
         if entries:
             print("\nRecent entries in live_prizes table:")
-            print("-" * 150)
-            print(f"{'Timestamp':<20} {'Game Name':<20} {'Top Prize':<15} {'Inc.':<5} {'$':<3} {'Sales':<7} {'Hourly':<8} {'Prize1':<6} {'Prize2':<6} {'Prize3':<6} {'Prize4':<6} {'Prize5':<6} {'Prize6':<6}")
-            print("-" * 150)
+            print("-" * 200)
+            print(f"{'Timestamp':<20} {'Game Name':<20} {'Top Prize':<15} {'Inc.':<5} {'$':<3} {'Sales':<7} {'Hourly':<8} {'Prize1':<6} {'Prize2':<6} {'Prize3':<6} {'Prize4':<6} {'Prize5':<6} {'Prize6':<6} {'Prize1 Value':<10} {'Prize2 Value':<10} {'Prize3 Value':<10} {'Prize4 Value':<10} {'Prize5 Value':<10} {'Prize6 Value':<10}")
+            print("-" * 200)
             
             for entry in entries:
-                timestamp, game, prize, increment, price, sales, hourly, p1, p2, p3, p4, p5, p6 = entry
+                timestamp, game, prize, increment, price, sales, hourly, p1, p2, p3, p4, p5, p6, p1v, p2v, p3v, p4v, p5v, p6v = entry
                 formatted_time = timestamp.strftime('%Y-%m-%d %H:%M:%S')
                 sales_str = f"{sales:.2f}" if sales is not None else "N/A"
                 hourly_str = f"{hourly:.2f}" if hourly is not None else "N/A"
                 print(f"{formatted_time:<20} {game:<20} ${prize:<15} {increment if increment else 'N/A':<5} "
                       f"${price if price else 'N/A':<3} {sales_str:<7} {hourly_str:<8} "
-                      f"{p1:<6} {p2:<6} {p3:<6} {p4:<6} {p5:<6} {p6:<6}")
+                      f"{p1:<6} {p2:<6} {p3:<6} {p4:<6} {p5:<6} {p6:<6} "
+                      f"{p1v:<10} {p2v:<10} {p3v:<10} {p4v:<10} {p5v:<10} {p6v:<10}")
         else:
             print("No entries found in the live_prizes table.")
     
