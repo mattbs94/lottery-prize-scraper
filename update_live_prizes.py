@@ -167,6 +167,7 @@ def update_database(data, url):
     """
     Add a new row to the live_prizes table with the latest data.
     Calculate actual_sales and implied_hourly_sales based on previous record.
+    Skip insertion if a record with the same timestamp already exists.
     """
     if not data:
         return
@@ -181,6 +182,13 @@ def update_database(data, url):
     # Calculate sales metrics if previous record exists
     if prev_record:
         prev_time, prev_top_prize, increment = prev_record
+        
+        # Check if the current timestamp is the same as the previous record
+        if data['time'] == prev_time:
+            print(f"Skipping duplicate record at {data['time'].strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Game: {data['game_name']}")
+            print(f"Current Prize: ${data['top_prize']}")
+            return
         
         # Convert top prize strings to numbers for calculation
         current_prize = float(data['top_prize'].replace(',', ''))
@@ -205,10 +213,24 @@ def update_database(data, url):
         print(f"Actual sales: {actual_sales:.2f} tickets")
         print(f"Implied hourly sales: {implied_hourly_sales:.2f} tickets/hour")
     
+    # Check for existing record with the same timestamp
     conn = connect_to_db()
     cur = conn.cursor()
     
     try:
+        # Check if a record with the same timestamp already exists
+        cur.execute(
+            """SELECT COUNT(*) FROM live_prizes WHERE time = %s AND game_name = %s""",
+            (data['time'], data['game_name'])
+        )
+        count = cur.fetchone()[0]
+        
+        if count > 0:
+            print(f"Skipping duplicate record at {data['time'].strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Game: {data['game_name']}")
+            print(f"Current Prize: ${data['top_prize']}")
+            return
+        
         # Insert new record with current timestamp and sales metrics
         cur.execute(
             """
